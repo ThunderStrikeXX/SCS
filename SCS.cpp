@@ -824,12 +824,12 @@ int main() {
     T_out.close();
 	rho_out.close();
 
+    std::clock_t cpu_end = std::clock();
+    std::cout << "CPU time: " << (double)(cpu_end - cpu_start) / CLOCKS_PER_SEC << " s\n";
+
     auto wall_end = std::chrono::steady_clock::now();
     std::chrono::duration<double> wall_elapsed = wall_end - wall_start;
     std::cout << "Wall clock time: " << wall_elapsed.count() << " s\n";
-
-    std::clock_t cpu_end = std::clock();
-    std::cout << "CPU time: " << (double)(cpu_end - cpu_start) / CLOCKS_PER_SEC << " s\n";
 
     system("pause");
 
