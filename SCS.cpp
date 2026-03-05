@@ -831,7 +831,7 @@ int main() {
     std::clock_t cpu_end = std::clock();
     std::cout << "CPU time: " << (double)(cpu_end - cpu_start) / CLOCKS_PER_SEC << " s\n";
 
-    std::cin.get();
+    system("pause");
 
     return 0;
 }
