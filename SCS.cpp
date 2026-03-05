@@ -54,7 +54,7 @@ struct Input {
 
     // Default parameters
 
-    int    N = 20;                          // Number of cells [-]
+    int    N = 20 + 2;                      // Number of cells (two ghosts) [-]
     double L = 1.0;                         // Length of the domain [m]
 
     double dt_user = 1e-3;                  // User-defined time step [s]
@@ -228,7 +228,7 @@ int main() {
 
     Input in = readInput(inputFile);
 
-	const int    N = in.N;                                              // Number of cells [-]
+	const int    N = in.N + 2;                                          // Number of cells (two ghosts) [-]
     const double L = in.L;                                              // Length of the domain [m]
 	const double dz = L / N;                                            // Cell size [m]
 
@@ -451,7 +451,7 @@ int main() {
                 aVU[0] = 0.0;
                 bVU[0] = rho_v[0] * dz / dt + 2 * D_first + F_r_first;
                 cVU[0] = 0.0;
-                dVU[0] = bVU[0] * u_inlet_value;
+                dVU[0] = bVU[0] * (2 * u_inlet_value - u_v[1]);
             }
             else if (u_inlet_bc == 1) {                          // Neumann BC
                 aVU[0] = 0.0;
@@ -464,7 +464,7 @@ int main() {
                 aVU[N - 1] = 0.0;
                 bVU[N - 1] = +(rho_v[N - 1] * dz / dt + 2 * D_last - F_l_last);
                 cVU[N - 1] = 0.0;
-                dVU[N - 1] = bVU[N - 1] * u_outlet_value;
+                dVU[N - 1] = bVU[N - 1] * (2 * u_outlet_value - u_v[N - 2]);
             }
             else if (u_outlet_bc == 1) {                        // Neumann BC
                 aVU[N - 1] = -(rho_v[N - 1] * dz / dt + 2 * D_last - F_l_last);
@@ -594,7 +594,7 @@ int main() {
                 // BCs on pressure
                 if (p_inlet_bc == 0) {                              // Dirichlet BC
 
-					p_v[0] = p_inlet_value;
+					p_v[0] = 2 * p_inlet_value - p_v[1];
                     p_storage_v[0] = p_inlet_value;
                 }
                 else if (p_inlet_bc == 1) {                         // Neumann BC
@@ -605,7 +605,7 @@ int main() {
 
                 if (p_outlet_bc == 0) {                              // Dirichlet BC
 
-					p_v[N - 1] = p_outlet_value;
+					p_v[N - 1] = 2 * p_outlet_value - p_v[N - 2];
                     p_storage_v[N + 1] = p_outlet_value;
                 }
                 else if (p_outlet_bc == 1) {                         // Neumann BC
@@ -731,7 +731,7 @@ int main() {
                 aVT[0] = 0.0;
                 bVT[0] = 1.0;
                 cVT[0] = 0.0;
-                dVT[0] = T_inlet_value * cp_v[0];
+                dVT[0] = 2 * T_inlet_value * cp_v[0] - T_v[1] * cp_v[1];
             }
             else if (T_inlet_bc == 1) {                 // Neumann BC
 
@@ -746,7 +746,7 @@ int main() {
                 aVT[N - 1] = 0.0;
                 bVT[N - 1] = 1.0;
                 cVT[N - 1] = 0.0;
-                dVT[N - 1] = T_outlet_value * cp_v[N - 1];
+                dVT[N - 1] = 2 * T_outlet_value * cp_v[N - 1] - T_v[N - 2] * cp_v[N - 2];
             }
             else if (T_outlet_bc == 1) {                // Neumann BC
 
@@ -799,7 +799,7 @@ int main() {
         // ===============================================================
 
         if (n % print_every == 0) {
-            for (int i = 0; i < N; ++i) {
+            for (int i = 1; i < N - 1; ++i) {       // No output for ghosts cells
 
                 v_out << u_v[i] << ", ";
                 p_out << p_v[i] << ", ";
@@ -831,7 +831,7 @@ int main() {
     std::clock_t cpu_end = std::clock();
     std::cout << "CPU time: " << (double)(cpu_end - cpu_start) / CLOCKS_PER_SEC << " s\n";
 
-    std::cin.get();
+    system("pause");
 
     return 0;
 }
