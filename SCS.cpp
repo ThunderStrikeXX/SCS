@@ -34,13 +34,13 @@ std::string chooseInputFile(const std::string& inputDir) {
     }
 
     std::cout << "Available input files:\n";
-    for (std::size_t i = 0; i < files.size(); ++i) {
+    for (int i = 0; i < files.size(); ++i) {
         std::cout << "  [" << i << "] "
             << files[i].filename().string() << '\n';
     }
 
     std::cout << "Select input file by number: ";
-    std::size_t choice;
+    int choice;
     std::cin >> choice;
 
     if (choice >= files.size()) {
@@ -359,7 +359,7 @@ int main() {
     // TDMA solver
     tdma::Solver tdma_solver(N);
 
-    std::vector<double> h_v(N, in.T_initial * 1000);                    // Vapor enthalpy [J/kg]
+    std::vector<double> h_v(N, in.T_initial * cp);                    // Vapor enthalpy [J/kg]
     std::vector<double> h_v_old = h_v;
 
     // Residuals for mass, monentum and enthalpy equations
@@ -665,7 +665,7 @@ int main() {
 
                 continuity_res_v = 0.0;
 
-                for (std::size_t i = 1; i < N - 1; ++i) {
+                for (int i = 1; i < N - 1; ++i) {
 
                     continuity_res_v = std::max(continuity_res_v, std::abs(dVP[i]));
                 }
@@ -680,7 +680,7 @@ int main() {
 
             momentum_res_v = 0.0;
 
-            for (std::size_t i = 1; i < N - 1; ++i) {
+            for (int i = 1; i < N - 1; ++i) {
                 momentum_res_v = std::max(momentum_res_v, std::abs(aVU[i] * u_v[i - 1] + bVU[i] * u_v[i] + cVU[i] * u_v[i + 1] - dVU[i]));
             }
 
@@ -690,8 +690,8 @@ int main() {
             #pragma region temperature_calculator
             for (int i = 1; i < N - 1; i++) {
 
-                const double D_v = k / (cp * dz);      /// [W/(m2 K)]
-                const double D_r = k / (cp * dz);      /// [W/(m2 K)]
+                const double D_l = k / (cp_v[i - 1] * dz);      /// [W/(m2 K)]
+                const double D_r = k / (cp_v[i + 1] * dz);      /// [W/(m2 K)]
 
                 const double dpdz_up = u_v[i] * (p_v[i + 1] - p_v[i - 1]) / 2.0;
 
@@ -702,19 +702,19 @@ int main() {
                         + (u_v[i] + u_v[i - 1]) * (u_v[i] + u_v[i - 1])) / dz;
 
                 aVT[i] =
-                    - D_v
+                    -D_l
                     - std::max(phi_v[i], 0.0)
                     ;               /// [W/(m2K)]
 
                 cVT[i] =
-                    - D_r
+                    -D_l
                     - std::max(-phi_v[i + 1], 0.0)
                     ;              /// [W/(m2K)]
 
                 bVT[i] =
                     + std::max(phi_v[i + 1], 0.0)
                     + std::max(-phi_v[i], 0.0)
-                    + D_v + D_r
+                    + D_l + D_r
                     + rho_v[i] * dz / dt;          /// [W/(m2 K)]
 
                 dVT[i] =
@@ -731,7 +731,7 @@ int main() {
                 aVT[0] = 0.0;
                 bVT[0] = 1.0;
                 cVT[0] = 0.0;
-                dVT[0] = T_inlet_value * 1000;
+                dVT[0] = T_inlet_value * cp_v[0];
             }
             else if (T_inlet_bc == 1) {                 // Neumann BC
 
@@ -746,7 +746,7 @@ int main() {
                 aVT[N - 1] = 0.0;
                 bVT[N - 1] = 1.0;
                 cVT[N - 1] = 0.0;
-                dVT[N - 1] = T_outlet_value * 1000;
+                dVT[N - 1] = T_outlet_value * cp_v[N - 1];
             }
             else if (T_outlet_bc == 1) {                // Neumann BC
 
@@ -760,9 +760,9 @@ int main() {
             tdma_solver.solve(aVT, bVT, cVT, dVT, h_v);
 
             // Recovering temperture from enthalpy
-            for (std::size_t i = 0; i < N; i++) {
+            for (int i = 0; i < N; i++) {
 
-                T_v[i] = h_v[i] / 1000;
+                T_v[i] = h_v[i] / cp_v[i];
 
             }
 
@@ -773,7 +773,7 @@ int main() {
 
             temperature_res_v = 0.0;
 
-            for (std::size_t i = 0; i < N; ++i) {
+            for (int i = 0; i < N; ++i) {
 
                 temperature_res_v = std::max(
                     temperature_res_v,
@@ -831,7 +831,7 @@ int main() {
     std::clock_t cpu_end = std::clock();
     std::cout << "CPU time: " << (double)(cpu_end - cpu_start) / CLOCKS_PER_SEC << " s\n";
 
-    system("pause");
+    std::cin.get();
 
     return 0;
 }
