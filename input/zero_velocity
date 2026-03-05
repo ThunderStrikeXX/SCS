@@ -10,12 +10,13 @@ simulation_time = 1.0
 picard_max_iter = 100
 picard_tol = 1e-8
 
-# ---------------- PISO ----------------
-piso_outer_iter = 200
-piso_inner_iter = 100
-piso_outer_tol = 1e-8
-piso_inner_tol = 1e-8
-rhie_chow = 1
+# ---------------- PIMPLE ----------------
+max_outer_iter = 200
+max_inner_iter = 100
+momentum_tol = 1e-8
+continuity_tol = 1e-8
+temperature_tol = 1e-2
+rhie_chow_on_off = 1
 
 # ---------------- FLUID ---------------
 mu = 1e-5

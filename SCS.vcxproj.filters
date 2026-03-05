@@ -15,10 +15,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="rhoPISO.cpp">
+    <ClCompile Include="lib\tdma.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="lib\tdma.cpp">
+    <ClCompile Include="SCS.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -52,32 +52,35 @@ std::string chooseInputFile(const std::string& inputDir) {
           
 struct Input {
 
-    int    N = 0;                           // Number of cells [-]
-    double L = 0.0;                         // Length of the domain [m]
+    // Default parameters
 
-    double dt_user = 0.0;                   // User-defined time step [s]
-    double simulation_time = 0.0;           // Total simulation time [s]
+    int    N = 20;                          // Number of cells [-]
+    double L = 1.0;                         // Length of the domain [m]
 
-    int    picard_max_iter = 0;             // Maximum Picard iterations [-]
-    double picard_tol = 0.0;                // Picard tolerance [-]
+    double dt_user = 1e-3;                  // User-defined time step [s]
+    double simulation_time = 1.0;           // Total simulation time [s]
 
-    int    piso_outer_iter = 0;             // PISO outer iterations [-]
-    int    piso_inner_iter = 0;             // PISO inner iterations [-]
-    double piso_outer_tol = 0.0;            // PISO outer tolerance [-]
-    double piso_inner_tol = 0.0;            // PISO inner tolerance [-]
+    int    picard_max_iter = 50;            // Maximum Picard iterations [-]
+    double picard_tol = 1e-2;               // Picard tolerance [-]
+
+    int    max_outer_iter = 10;             // Maximum outer iterations [-]
+    int    max_inner_iter = 10;             // Maximum inner iterations [-]
+    double momentum_tol = 1e-6;             // Momentum tolerance [-]
+    double continuity_tol = 1e-6;           // Continuity tolerance [-]
+    double temperature_tol = 1e-2;          // Temperature tolerance [-]
     bool   rhie_chow_on_off_v = true;       // Rhie–Chow on/off [-]
 
-    double mu = 0.0;                        // Dynamic viscosity [kg/(m s)]
-	double Rv = 0.0;                        // Specific gas constant for water vapor [J/(kg K)]
-	double k = 0.0;                         // Thermal conductivity [W/(m K)]
-	double cp = 0.0;                        // Specific heat capacity at constant pressure [J/(kg K)]
+    double mu = 1e-5;                       // Dynamic viscosity [kg/(m s)]
+	double Rv = 361.5;                      // Specific gas constant for water vapor [J/(kg K)]
+	double k = 1.0;                         // Thermal conductivity [W/(m K)]
+	double cp = 1000.0;                     // Specific heat capacity at constant pressure [J/(kg K)]
 
     double S_m_cell = 0.0;                  // Volumetric mass source [kg/(m3 s)]
     double S_h_cell = 0.0;                  // Volumetric heat source [W/m3]
 
     double z_evap_start = 0.0;              // Evaporation zone start [m]
-    double z_evap_end = 0.0;                // Evaporation zone end [m]
-    double z_cond_start = 0.0;              // Condensation zone start [m]
+    double z_evap_end = 0.3;                // Evaporation zone end [m]
+    double z_cond_start = 0.7;              // Condensation zone start [m]
     double z_cond_end = 0.0;                // Condensation zone end [m]
 
     int    u_inlet_bc = 0;                  // 0 Dirichlet, 1 Neumann
@@ -87,28 +90,28 @@ struct Input {
     double u_outlet_value = 0.0;            // [m/s]
 
     int    T_inlet_bc = 0;                  // 0 Dirichlet, 1 Neumann
-    double T_inlet_value = 0.0;             // [K]
+    double T_inlet_value = 300.0;           // [K]
 
-    int    T_outlet_bc = 0;                 // 0 Dirichlet, 1 Neumann
+    int    T_outlet_bc = 1;                 // 0 Dirichlet, 1 Neumann
     double T_outlet_value = 0.0;            // [K]
 
-    int    p_inlet_bc = 0;                  // 0 Dirichlet, 1 Neumann
+    int    p_inlet_bc = 1;                  // 0 Dirichlet, 1 Neumann
     double p_inlet_value = 0.0;             // [Pa]
 
     int    p_outlet_bc = 0;                 // 0 Dirichlet, 1 Neumann
-    double p_outlet_value = 0.0;            // [Pa]
+    double p_outlet_value = 10000.0;        // [Pa]
 
     double u_initial = 0.0;                 // [m/s]
-    double p_initial = 0.0;                 // [Pa]
-    double T_initial = 0.0;                 // [K]
-	double rho_initial = 0.0;               // [kg/m3]
+    double p_initial = 10000.0;             // [Pa]
+    double T_initial = 300.0;               // [K]
+	double rho_initial = 0.0922;            // [kg/m3]
 
-    int number_output = 0;                  // Number of outputs [-]
+    int number_output = 10;                 // Number of outputs [-]
 
-    std::string velocity_file = "";
-    std::string pressure_file = "";
-    std::string temperature_file = "";
-    std::string density_file = "";
+    std::string velocity_file = "velocity.txt";
+    std::string pressure_file = "pressure.txt";
+    std::string temperature_file = "temperature.txt";
+    std::string density_file = "density.txt";
 };
 
 // =======================================================================
@@ -160,11 +163,12 @@ Input readInput(const std::string& filename) {
     in.dt_user = std::stod(dict["dt_user"]);
     in.simulation_time = std::stod(dict["simulation_time"]);
 
-    in.piso_outer_iter = std::stoi(dict["piso_outer_iter"]);
-    in.piso_inner_iter = std::stoi(dict["piso_inner_iter"]);
-    in.piso_outer_tol = std::stod(dict["piso_outer_tol"]);
-    in.piso_inner_tol = std::stod(dict["piso_inner_tol"]);
-    in.rhie_chow_on_off_v = std::stoi(dict["rhie_chow"]);
+    in.max_outer_iter = std::stoi(dict["max_outer_iter"]);
+    in.max_inner_iter = std::stoi(dict["max_inner_iter"]);
+    in.momentum_tol = std::stod(dict["momentum_tol"]);
+    in.continuity_tol = std::stod(dict["continuity_tol"]);
+    in.temperature_tol = std::stod(dict["temperature_tol"]);
+    in.rhie_chow_on_off_v = std::stoi(dict["rhie_chow_on_off"]);
 
     in.mu = std::stod(dict["mu"]);
 	in.Rv = std::stod(dict["Rv"]);
@@ -240,10 +244,11 @@ int main() {
 	const int max_picard = in.picard_max_iter;                          // Maximum Picard iterations [-]
 	const double pic_tolerance = in.picard_tol;                         // Picard tolerance [-]
 
-	const int tot_outer_v = in.piso_outer_iter;                         // PISO outer iterations [-]
-	const int tot_inner_v = in.piso_inner_iter;                         // PISO inner iterations [-]
-	const double outer_tol_v = in.piso_outer_tol;                       // PISO outer tolerance [-]
-	const double inner_tol_v = in.piso_inner_tol;                       // PISO inner tolerance [-]
+	const int max_outer_iter = in.max_outer_iter;                       // Total outer iterations [-]
+	const int max_inner_iter = in.max_inner_iter;                       // Total inner iterations [-]
+	const double momentum_tol_v = in.momentum_tol;                      // Momentum tolerance [-]
+    const double continuity_tol_v = in.continuity_tol;                  // Continuity tolerance [-]
+    const double temperature_tol_v = in.temperature_tol;                // Temperature tolerance [-]
 	const bool rhie_chow_on_off_v = in.rhie_chow_on_off_v;              // Rhie–Chow interpolation on/off (1/0) [-]
 
     double dt = dt_user;                                                // Time step [s]
@@ -253,13 +258,16 @@ int main() {
 	const double k = in.k;                                              // Thermal conductivity [W/(m K)]
 	const double cp = in.cp;                                            // Specific heat capacity at constant pressure [J/(kg K)]
 
+    std::vector<double> mu_v(N, mu);                                    // Dynamic viscosity [kg/(m s)]
+    std::vector<double> k_v(N, k);                                      // Thermal conductivity [W/(m K)]
+    std::vector<double> cp_v(N, cp);                                    // Specific heat capacity at constant pressure [J/(kg K)]
+
 	std::vector<double> u_v(N, in.u_initial);                           // Velocity field [m/s]
 	std::vector<double> T_v(N, in.T_initial);                           // Temperature field [K]
 	std::vector<double> p_v(N, in.p_initial);                           // Pressure field [Pa]
 	std::vector<double> rho_v(N, in.rho_initial);                       // Density field [kg/m3]
 
 	std::vector<double> u_v_old = u_v;                                  // Previous time step velocity [m/s]
-	std::vector<double> T_v_old = T_v;                                  // Previous time step temperature [K]
 	std::vector<double> p_v_old = p_v;                                  // Previous time step pressure [Pa]
 	std::vector<double> rho_v_old = rho_v;                              // Previous time step density [kg/m3]
 
@@ -354,13 +362,6 @@ int main() {
     std::vector<double> h_v(N, in.T_initial * 1000);                    // Vapor enthalpy [J/kg]
     std::vector<double> h_v_old = h_v;
 
-    // PISO Vapor parameters
-    const int tot_simple_iter_v = 50;                   // Outer iterations per time-step [-]
-    const int tot_piso_iter_v = 10;                     // Inner iterations per outer iteration [-]
-    const double momentum_tol_v = 1e-6;              // Tolerance for the outer iterations (velocity) [-]
-    const double continuity_tol_v = 1e-6;            // Tolerance for the inner iterations (pressure) [-]
-    const double temperature_tol_v = 1e-2;           // Tolerance for the energy equation [-]
-
     // Residuals for mass, monentum and enthalpy equations
     double momentum_res_v = 1.0;
     double temperature_res_v = 1.0;
@@ -375,6 +376,7 @@ int main() {
     double u_error_v = 0.0;
     double rho_error_v = 0.0;
 
+    // Density initialization
     for (int i = 0; i < N; i++) { rho_v[i] = std::max(1e-6, p_v[i] / (Rv * T_v[i])); }
 
     // Flux initialization
@@ -384,11 +386,20 @@ int main() {
         phi_v[i] = rho_face * u_face;
     }
 
-    auto wall_start = std::chrono::steady_clock::now();
-    std::clock_t cpu_start = std::clock();
+    auto wall_start = std::chrono::steady_clock::now();     // Wall time
+    std::clock_t cpu_start = std::clock();                  // CPU time
 
 	// Time-stepping loop
     for (int n = 0; n <= time_steps; ++n) {
+
+        // Update properties
+        for (int i = 0; i < N; ++i) {
+
+            mu_v[i] = mu;
+            k_v[i] = k;
+            cp_v[i] = cp;
+
+        }
 
         // Momentum and energy residual initialization to access outer loop
         momentum_res_v = 1.0;
@@ -397,12 +408,10 @@ int main() {
         // Outer iterations reset
         simple_iter_v = 0;
 
-        while ((simple_iter_v < tot_simple_iter_v) && (momentum_res_v > momentum_tol_v || temperature_res_v > temperature_tol_v)) {
+        while ((simple_iter_v < max_outer_iter) && (momentum_res_v > momentum_tol_v || temperature_res_v > temperature_tol_v)) {
 
-            // ===========================================================
-            // MOMENTUM PREDICTOR
-            // ===========================================================
-
+            // =========== MOMENTUM PREDICTOR
+            #pragma region momentum_predictor
             for (int i = 1; i < N - 1; ++i) {
 
                 const double D_l = (4.0 / 3.0) * mu / dz;       // [kg/(m2s)]
@@ -466,6 +475,8 @@ int main() {
 
             tdma_solver.solve(aVU, bVU, cVU, dVU, u_v);
 
+            #pragma endregion
+
             // =========== FLUX CORRECTOR
             #pragma region flux_corrector
 
@@ -493,28 +504,26 @@ int main() {
             // Inner iterations reset
             piso_iter_v = 0;
 
-            while ((piso_iter_v < tot_piso_iter_v) && (continuity_res_v > continuity_tol_v)) {
+            while ((piso_iter_v < max_inner_iter) && (continuity_res_v > continuity_tol_v)) {
 
-                // -------------------------------------------------------
-                // CONTINUITY SATISFACTOR: assemble pressure correction
-                // -------------------------------------------------------
-
+                // =========== CONTINUITY SATISFACTOR
+                #pragma region continuity_satisfactor
                 for (int i = 1; i < N - 1; ++i) {
 
-                    const double psi_i = 1.0 / (Rv * T_v[i]); // [kg/J]
+                    const double psi_i = 1.0 / (Rv * T_v[i]);   // [kg/J]
 
-                    const double Crho_l = phi_v[i] >= 0 ? (1.0 / (Rv * T_v[i - 1])) : (1.0 / (Rv * T_v[i]));  // [s2/m2]
-                    const double Crho_r = phi_v[i + 1] >= 0 ? (1.0 / (Rv * T_v[i])) : (1.0 / (Rv * T_v[i + 1]));  // [s2/m2]
+                    const double Crho_l = phi_v[i] >= 0 ? (1.0 / (Rv * T_v[i - 1])) : (1.0 / (Rv * T_v[i]));        // [s2/m2]
+                    const double Crho_r = phi_v[i + 1] >= 0 ? (1.0 / (Rv * T_v[i])) : (1.0 / (Rv * T_v[i + 1]));    // [s2/m2]
 
-                    const double rho_l_upwind = (phi_v[i] >= 0.0) ? rho_v[i - 1] : rho_v[i];    // [kg/m3]
+                    const double rho_l_upwind = (phi_v[i] >= 0.0) ? rho_v[i - 1] : rho_v[i];        // [kg/m3]
                     const double rho_r_upwind = (phi_v[i + 1] >= 0.0) ? rho_v[i] : rho_v[i + 1];    // [kg/m3]
 
-                    const double C_l = Crho_l * phi_v[i] / rho_l_upwind;       // [s/m]
-                    const double C_r = Crho_r * phi_v[i + 1] / rho_r_upwind;       // [s/m]
+                    const double C_l = Crho_l * phi_v[i] / rho_l_upwind;        // [s/m]
+                    const double C_r = Crho_r * phi_v[i + 1] / rho_r_upwind;    // [s/m]
 
                     const double mass_imbalance = (phi_v[i + 1] - phi_v[i]) + (rho_v[i] - rho_v_old[i]) * dz / dt;  // [kg/(m2s)]
 
-                    const double mass_flux = S_m[i] * dz;         // [kg/(m2s)]
+                    const double mass_flux = S_m[i] * dz;       // [kg/(m2s)]
 
                     const double E_l = 0.5 * (rho_v[i - 1] * (1.0 / bVU[i - 1]) + rho_v[i] * (1.0 / bVU[i])) / dz; // [s/m]
                     const double E_r = 0.5 * (rho_v[i] * (1.0 / bVU[i]) + rho_v[i + 1] * (1.0 / bVU[i + 1])) / dz; // [s/m]
@@ -522,18 +531,18 @@ int main() {
                     aVP[i] =
                         -E_l
                         - std::max(C_l, 0.0)
-                        ;               /// [s/m]
+                        ;                       /// [s/m]
 
                     cVP[i] =
                         -E_r
                         - std::max(-C_r, 0.0)
-                        ;              /// [s/m]
+                        ;                       /// [s/m]
 
                     bVP[i] =
                         +E_l + E_r
                         + std::max(C_r, 0.0)
                         + std::max(-C_l, 0.0)
-                        + psi_i * dz / dt;                  /// [s/m]
+                        + psi_i * dz / dt;      /// [s/m]
 
                     dVP[i] = +mass_flux - mass_imbalance;  /// [kg/(m2s)]
                 }
@@ -567,10 +576,10 @@ int main() {
 
                 tdma_solver.solve(aVP, bVP, cVP, dVP, p_prime_v);
 
-                // -------------------------------------------------------
-                // PRESSURE CORRECTOR
-                // -------------------------------------------------------
+                #pragma endregion
 
+                // =========== PRESSURE CORRECTOR
+                #pragma region pressure_corrector
                 p_error_v = 0.0;
 
                 for (int i = 0; i < N; ++i) {
@@ -605,10 +614,10 @@ int main() {
                     p_storage_v[N + 1] = p_storage_v[N];
                 }
 
-                // -------------------------------------------------------
-                // VELOCITY CORRECTOR
-                // -------------------------------------------------------
+                #pragma endregion
 
+                // =========== VELOCITY CORRECTOR
+                #pragma region velocity_corrector
                 u_error_v = 0.0;
 
                 for (int i = 1; i < N - 1; ++i) {
@@ -617,10 +626,10 @@ int main() {
                     u_error_v = std::max(u_error_v, std::fabs(u_v[i] - u_prev[i]));
                 }
 
-                // -------------------------------------------------------
-                // DENSITY CORRECTOR
-                // -------------------------------------------------------
+                #pragma endregion
 
+                // =========== DENSITY CORRECTOR
+                #pragma region density_corrector
                 rho_error_v = 0.0;
 
                 for (int i = 0; i < N; ++i) {
@@ -629,7 +638,10 @@ int main() {
                     rho_error_v = std::max(rho_error_v, std::fabs(rho_v[i] - rho_prev[i]));
                 }
 
+                #pragma endregion
+
                 // =========== FLUX CORRECTOR
+                #pragma region flux_corrector
                 for (int i = 1; i < N; ++i) {
 
                     const double avgInvbVU = 0.5 * (1.0 / bVU[i - 1] + 1.0 / bVU[i]); // [m2s/kg]
@@ -646,6 +658,8 @@ int main() {
                     phi_v[i] = rho * u_face;
                 }
 
+                #pragma endregion
+
                 // =========== CONTINUITY RESIDUAL CALCULATOR
                 #pragma region continuity_residual_calculator
 
@@ -656,7 +670,7 @@ int main() {
                     continuity_res_v = std::max(continuity_res_v, std::abs(dVP[i]));
                 }
 
-                    #pragma endregion
+                #pragma endregion
 
                 piso_iter_v++;
             }
@@ -672,11 +686,8 @@ int main() {
 
             #pragma endregion
 
-            // ===============================================================
-            // TEMPERATURE SOLVER
-            // ===============================================================
-
-            // Energy equation for T (implicit), upwind convection, central diffusion
+            // =========== TEMPERATURE CALCULATOR
+            #pragma region temperature_calculator
             for (int i = 1; i < N - 1; i++) {
 
                 const double D_v = k / (cp * dz);      /// [W/(m2 K)]
@@ -755,6 +766,8 @@ int main() {
 
             }
 
+            #pragma endregion
+
             // =========== TEMPERATURE RESIDUAL CALCULATOR
             #pragma region temperature_residual_calculator
 
@@ -775,13 +788,10 @@ int main() {
             simple_iter_v++;
         }
 
-        for (int i = 0; i < N; i++) { rho_v[i] = std::max(1e-6, p_v[i] / (Rv * T_v[i])); }
-
         // Saving old variables
         u_v_old = u_v;
         p_v_old = p_v;
         rho_v_old = rho_v;
-        T_v_old = T_v;
         h_v_old = h_v;
 
         // ===============================================================
