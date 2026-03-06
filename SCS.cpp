@@ -642,6 +642,17 @@ int main() {
 
                 // =========== FLUX CORRECTOR
                 #pragma region flux_corrector
+
+                /*
+                for (int i = 1; i < N; ++i) {
+                    const double avgInvbVU = 0.5 * (1.0 / bVU[i - 1] + 1.0 / bVU[i]);
+
+                    // Correzione incrementale coerente con la matrice p'
+                    const double rho_face = (phi_v[i] >= 0.0) ? rho_v[i - 1] : rho_v[i];
+                    phi_v[i] -= rho_face * avgInvbVU * (p_prime_v[i] - p_prime_v[i - 1]) / dz;
+                }
+                */
+
                 for (int i = 1; i < N; ++i) {
                     const double avgInvbVU = 0.5 * (1.0 / bVU[i - 1] + 1.0 / bVU[i]);
 
