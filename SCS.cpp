@@ -303,7 +303,7 @@ int main() {
         }
         else if (z >= in.z_cond_start && z <= in.z_cond_end) {
             S_m[i] = -in.S_m_cell;
-            S_h[i] = -in.S_h_cell;
+            //S_h[i] = -in.S_h_cell;
         }
     }
 
@@ -643,19 +643,11 @@ int main() {
                 // =========== FLUX CORRECTOR
                 #pragma region flux_corrector
                 for (int i = 1; i < N; ++i) {
+                    const double avgInvbVU = 0.5 * (1.0 / bVU[i - 1] + 1.0 / bVU[i]);
 
-                    const double avgInvbVU = 0.5 * (1.0 / bVU[i - 1] + 1.0 / bVU[i]); // [m2s/kg]
-
-                    double rc = -avgInvbVU / 4.0 *
-                        (p_padded_v[i - 2] - 3.0 * p_padded_v[i - 1] + 3.0 * p_padded_v[i] - p_padded_v[i + 1]); // [m/s]
-
-                    // Face velocities (avg + RC)
-                    const double u_face = 0.5 * (u_v[i - 1] + u_v[i]) + rhie_chow_on_off_v * rc;    // [m/s]
-
-                    // Upwind densities at faces
-                    const double rho = (u_face >= 0.0) ? rho_v[i - 1] : rho_v[i];       // [kg/m3]
-
-                    phi_v[i] = rho * u_face;
+                    // Correzione incrementale coerente con la matrice p'
+                    const double rho_face = (phi_v[i] >= 0.0) ? rho_v[i - 1] : rho_v[i];
+                    phi_v[i] -= rho_face * avgInvbVU * (p_prime_v[i] - p_prime_v[i - 1]) / dz;
                 }
 
                 #pragma endregion
@@ -666,6 +658,10 @@ int main() {
                 continuity_res_v = 0.0;
 
                 for (int i = 1; i < N - 1; ++i) {
+
+                    const double mass_imbalance = (phi_v[i + 1] - phi_v[i]) + (rho_v[i] - rho_v_old[i]) * dz / dt;  // [kg/(m2s)]
+                    const double mass_flux = S_m[i] * dz;       // [kg/(m2s)]
+                    dVP[i] = +mass_flux - mass_imbalance;  /// [kg/(m2s)]
 
                     continuity_res_v = std::max(continuity_res_v, std::abs(dVP[i]));
                 }
@@ -786,6 +782,16 @@ int main() {
             for (int i = 0; i < N; i++) { rho_v[i] = std::max(1e-6, p_v[i] / (Rv * T_v[i])); }
 
             simple_iter_v++;
+        }
+
+        // Apply Rhie and Chow correction OUTSIDE loops
+        for (int i = 1; i < N; ++i) {
+            const double avgInvbVU = 0.5 * (1.0 / bVU[i - 1] + 1.0 / bVU[i]);
+            double rc = -avgInvbVU / 4.0 * (p_padded_v[i - 2] - 3 * p_padded_v[i - 1]
+                + 3 * p_padded_v[i] - p_padded_v[i + 1]);
+            const double u_face = 0.5 * (u_v[i - 1] + u_v[i]) + rc;
+            const double rho_face = (u_face >= 0.0) ? rho_v[i - 1] : rho_v[i];
+            phi_v[i] = rho_face * u_face;
         }
 
         // Saving old variables
