@@ -476,8 +476,6 @@ int main() {
 
             tdma_solver.solve(aVU, bVU, cVU, dVU, u_v);
 
-            #pragma endregion
-
             // Continuity residual initialization to access inner loop
             continuity_res_v = 1.0;
 
