@@ -342,6 +342,9 @@ int main() {
 	std::vector<double> cVT(N, 0.0);                        // Upper tridiagonal coefficient for temperature
 	std::vector<double> dVT(N, 0.0);                        // Known vector coefficient for temperature
 
+    // Density field initialization coherent with pressure and temperature ICs
+    for (int i = 0; i < N; i++) rho_v[i] = std::max(1e-6, p_v[i] / (Rv * T_v[i]));
+
     // Initialization of the momentum equation coefficient
     for (int i = 0; i < N; ++i) bVU[i] = rho_v[i] * dz / dt_user + 2 * mu / dz;
 
@@ -375,9 +378,6 @@ int main() {
     double p_error_v = 0.0;
     double u_error_v = 0.0;
     double rho_error_v = 0.0;
-
-    // Density field initialization coherent with pressure and temperature ICs
-    for (int i = 0; i < N; i++) { rho_v[i] = std::max(1e-6, p_v[i] / (Rv * T_v[i])); }
 
     // Face fluxes initialization with upwind interpolation for density
     for (int i = 1; i < N; ++i) {
@@ -561,44 +561,6 @@ int main() {
 
             #pragma endregion
 
-            // =========== TEMPERATURE RESIDUAL CALCULATOR
-            #pragma region temperature_residual_calculator
-
-            temperature_res_v = 0.0;
-
-            for (int i = 1; i < N - 1; ++i) {
-
-                temperature_res_v = std::max(
-                    temperature_res_v,
-                    std::abs(T_v[i] - T_v_prev[i]) / T_v_prev[i]
-                );
-            }
-
-            #pragma endregion
-
-            // =========== FLUX CORRECTOR
-            #pragma region flux_corrector
-
-            for (int i = 1; i < N; ++i) {
-
-                // Average of the inverse of the momentum equation diagonal coefficient
-                const double avgInvbVU = 0.5 * (1.0 / bVU[i - 1] + 1.0 / bVU[i]);                                   // [m2s/kg]
-
-                // Rhie and Chow correction
-                double rc = -avgInvbVU / 4.0 *
-                    (p_padded_v[i - 2] - 3.0 * p_padded_v[i - 1] + 3.0 * p_padded_v[i] - p_padded_v[i + 1]);    // [m/s]
-
-                // Face velocities (avg + RC correction)
-                const double u_face = 0.5 * (u_v[i - 1] + u_v[i]) + rhie_chow_on_off_v * rc;                        // [m/s]
-
-                // Upwind densities at faces
-                const double rho = (u_face >= 0.0) ? rho_v[i - 1] : rho_v[i];                                       // [kg/m3]
-
-                phi_v[i] = rho * u_face;
-            }
-
-            #pragma endregion
-
             // Continuity residual initialization to access inner loop
             continuity_res_v = 1.0;
 
@@ -731,6 +693,21 @@ int main() {
 
                 #pragma endregion
 
+                // =========== FLUX CORRECTOR
+                #pragma region flux_corrector
+
+                for (int i = 1; i < N; ++i) {
+
+                    const double avgInvbVU = 0.5 * (1.0 / bVU[i - 1] + 1.0 / bVU[i]); // [m2s/kg]
+
+                    // Correzione incrementale coerente con la matrice p'
+                    const double rho_face = (phi_v[i] >= 0.0) ? rho_v[i - 1] : rho_v[i];
+                    phi_v[i] -= rho_face * avgInvbVU * (p_prime_v[i] - p_prime_v[i - 1]) / dz;
+
+                }
+
+                #pragma endregion
+
                 // =========== DENSITY CORRECTOR
                 #pragma region density_corrector
                 rho_error_v = 0.0;
@@ -775,6 +752,19 @@ int main() {
 
             // Make density coherent with the temperature and pressure fields
             for (int i = 0; i < N; i++) rho_v[i] = std::max(1e-6, p_v[i] / (Rv * T_v[i]));
+
+            // =========== TEMPERATURE RESIDUAL CALCULATOR
+            #pragma region temperature_residual_calculator
+
+            temperature_res_v = 0.0;
+
+            for (int i = 1; i < N - 1; ++i) {
+
+                temperature_res_v = std::max(
+                    temperature_res_v,
+                    std::abs(T_v[i] - T_v_prev[i]) / T_v_prev[i]
+                );
+            }
 
             #pragma endregion
 
