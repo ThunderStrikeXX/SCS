@@ -13,9 +13,9 @@ picard_tol = 1e-8
 # ---------------- PIMPLE ----------------
 max_outer_iter = 100
 max_inner_iter = 50
-momentum_tol = 1e-8
-continuity_tol = 1e-8
-temperature_tol = 1e-8
+momentum_tol = 1e-6
+continuity_tol = 1e-6
+temperature_tol = 1e-6
 rhie_chow_on_off = 1
 
 # ---------------- FLUID ---------------

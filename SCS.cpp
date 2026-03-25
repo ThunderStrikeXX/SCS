@@ -420,41 +420,41 @@ int main() {
 
                 aVU[i] =
                     -std::max(phi_v[i], 0.0)
-                    - D_l;                                  // [kg/(m2s)]
+                    - D_l;                                      // [kg/(m2s)]
                 cVU[i] =
                     -std::max(-phi_v[i + 1], 0.0)
-                    - D_r;                                  // [kg/(m2s)]
+                    - D_r;                                      // [kg/(m2s)]
                 bVU[i] =
                     +std::max(phi_v[i + 1], 0.0)
                     + std::max(-phi_v[i], 0.0)
-                    + rho_v[i] * dz / dt
-                    + D_l + D_r;                            // [kg/(m2s)]
+                    + rho_v[i] * dz / dt    
+                    + D_l + D_r;                                // [kg/(m2s)]
                 dVU[i] =
                     -0.5 * (p_v[i + 1] - p_v[i - 1])
-                    + rho_v_old[i] * u_v_old[i] * dz / dt;  // [kg/(ms2)]
+                    + rho_v_old[i] * u_v_old[i] * dz / dt;      // [kg/(ms2)]
             }
 
-            /// Diffusion coefficients for the first and last node to define BCs
+            // Diffusion coefficients for the first and last node to define BCs
             const double D_first = (4.0 / 3.0) * mu / dz;
             const double D_last = (4.0 / 3.0) * mu / dz;
 
-            /// Velocity BCs needed variables for the first node
+            // Velocity BCs needed variables for the first node
             const double u_r_face_first = 0.5 * (u_v[1]);
             const double rho_r_first = (u_r_face_first >= 0) ? rho_v[0] : rho_v[1];
             const double F_r_first = rho_r_first * u_r_face_first;
 
-            /// Velocity BCs needed variables for the last node
+            // Velocity BCs needed variables for the last node
             const double u_l_face_last = 0.5 * (u_v[N - 2]);
             const double rho_l_last = (u_l_face_last >= 0) ? rho_v[N - 2] : rho_v[N - 1];
             const double F_l_last = rho_l_last * u_l_face_last;
 
-            if (u_inlet_bc == 0) {                               // Dirichlet BC
+            if (u_inlet_bc == 0) {                              // Dirichlet BC
                 aVU[0] = 0.0;
                 bVU[0] = rho_v[0] * dz / dt + 2 * D_first + F_r_first;
                 cVU[0] = 0.0;
                 dVU[0] = bVU[0] * (2 * u_inlet_value - u_v[1]);
             }
-            else if (u_inlet_bc == 1) {                          // Neumann BC
+            else if (u_inlet_bc == 1) {                         // Neumann BC
                 aVU[0] = 0.0;
                 bVU[0] = +(rho_v[0] * dz / dt + 2 * D_first + F_r_first);
                 cVU[0] = -(rho_v[0] * dz / dt + 2 * D_first + F_r_first);
@@ -509,43 +509,43 @@ int main() {
                     aVP[i] =
                         -E_l
                         - std::max(C_l, 0.0)
-                        ;                       /// [s/m]
+                        ;                       // [s/m]
 
                     cVP[i] =
                         -E_r
                         - std::max(-C_r, 0.0)
-                        ;                       /// [s/m]
+                        ;                       // [s/m]
 
                     bVP[i] =
                         +E_l + E_r
                         + std::max(C_r, 0.0)
                         + std::max(-C_l, 0.0)
-                        + psi_i * dz / dt;      /// [s/m]
+                        + psi_i * dz / dt;      // [s/m]
 
-                    dVP[i] = +mass_flux - mass_imbalance;  /// [kg/(m2s)]
+                    dVP[i] = +mass_flux - mass_imbalance;  // [kg/(m2s)]
                 }
 
                 // BCs on p_prime
-                if (p_inlet_bc == 0) {                               // Dirichlet BC
+                if (p_inlet_bc == 0) {                              // Dirichlet BC
                     aVP[0] = 0.0;
                     bVP[0] = 1.0;
                     cVP[0] = 0.0;
                     dVP[0] = 0.0;
                 }
-                else if (p_inlet_bc == 1) {                          // Neumann BC
+                else if (p_inlet_bc == 1) {                         // Neumann BC
                     aVP[0] = 0.0;
                     bVP[0] = 1.0;
                     cVP[0] = -1.0;
                     dVP[0] = 0.0;
                 }
 
-                if (p_outlet_bc == 0) {                              // Dirichlet BC
+                if (p_outlet_bc == 0) {                             // Dirichlet BC
                     aVP[N - 1] = 0.0;
                     bVP[N - 1] = 1.0;
                     cVP[N - 1] = 0.0;
                     dVP[N - 1] = 0.0;
                 }
-                else if (p_outlet_bc == 1) {                          // Neumann BC
+                else if (p_outlet_bc == 1) {                        // Neumann BC
                     aVP[N - 1] = -1.0;
                     bVP[N - 1] = 1.0;
                     cVP[N - 1] = 0.0;
@@ -648,7 +648,7 @@ int main() {
 
                     const double mass_imbalance = (phi_v[i + 1] - phi_v[i]) + (rho_v[i] - rho_v_old[i]) * dz / dt;  // [kg/(m2s)]
                     const double mass_flux = S_m[i] * dz;       // [kg/(m2s)]
-                    dVP[i] = +mass_flux - mass_imbalance;  /// [kg/(m2s)]
+                    dVP[i] = +mass_flux - mass_imbalance;  // [kg/(m2s)]
 
                     continuity_res_v = std::max(continuity_res_v, std::abs(dVP[i]));
                 }
@@ -673,8 +673,8 @@ int main() {
             #pragma region temperature_calculator
             for (int i = 1; i < N - 1; i++) {
 
-                const double D_l = k / (cp_v[i - 1] * dz);      /// [W/(m2 K)]
-                const double D_r = k / (cp_v[i + 1] * dz);      /// [W/(m2 K)]
+                const double D_l = k / (cp_v[i - 1] * dz);      // [W/(m2 K)]
+                const double D_r = k / (cp_v[i + 1] * dz);      // [W/(m2 K)]
 
                 const double dpdz_up = u_v[i] * (p_v[i + 1] - p_v[i - 1]) / 2.0;
 
@@ -687,36 +687,36 @@ int main() {
                 aVT[i] =
                     -D_l
                     - std::max(phi_v[i], 0.0)
-                    ;               /// [W/(m2K)]
+                    ;                               // [W/(m2K)]
 
                 cVT[i] =
                     -D_l
                     - std::max(-phi_v[i + 1], 0.0)
-                    ;              /// [W/(m2K)]
+                    ;                               // [W/(m2K)]
 
                 bVT[i] =
                     +std::max(phi_v[i + 1], 0.0)
                     + std::max(-phi_v[i], 0.0)
                     + D_l + D_r
-                    + rho_v[i] * dz / dt;          /// [W/(m2 K)]
+                    + rho_v[i] * dz / dt;           // [W/(m2 K)]
 
                 dVT[i] =
                     +rho_v_old[i] * dz / dt * h_v_old[i]
                     + dp_dt
                     + dpdz_up
                     + viscous_dissipation
-                    + S_h[i] * dz;                      /// [W/m2]
+                    + S_h[i] * dz;                  // [W/m2]
             }
 
             // BCs on temperature
-            if (T_inlet_bc == 0) {                      // Dirichlet BC
+            if (T_inlet_bc == 0) {                  // Dirichlet BC
 
                 aVT[0] = 0.0;
                 bVT[0] = 1.0;
                 cVT[0] = 0.0;
                 dVT[0] = 2 * T_inlet_value * cp_v[0] - T_v[1] * cp_v[1];
             }
-            else if (T_inlet_bc == 1) {                 // Neumann BC
+            else if (T_inlet_bc == 1) {             // Neumann BC
 
                 aVT[0] = 0.0;
                 bVT[0] = 1.0;
@@ -724,14 +724,14 @@ int main() {
                 dVT[0] = 0.0;
             }
 
-            if (T_outlet_bc == 0) {                     // Dirichlet BC
+            if (T_outlet_bc == 0) {                 // Dirichlet BC
 
                 aVT[N - 1] = 0.0;
                 bVT[N - 1] = 1.0;
                 cVT[N - 1] = 0.0;
                 dVT[N - 1] = 2 * T_outlet_value * cp_v[N - 1] - T_v[N - 2] * cp_v[N - 2];
             }
-            else if (T_outlet_bc == 1) {                // Neumann BC
+            else if (T_outlet_bc == 1) {            // Neumann BC
 
                 aVT[N - 1] = -1.0;
                 bVT[N - 1] = 1.0;
@@ -743,11 +743,7 @@ int main() {
             tdma_solver.solve(aVT, bVT, cVT, dVT, h_v);
 
             // Recovering temperture from enthalpy
-            for (int i = 0; i < N; i++) {
-
-                T_v[i] = h_v[i] / cp_v[i];
-
-            }
+            for (int i = 0; i < N; i++) T_v[i] = h_v[i] / cp_v[i];
 
             #pragma endregion
 
@@ -776,8 +772,6 @@ int main() {
         p_v_old = p_v;
         rho_v_old = rho_v;
         h_v_old = h_v;
-
-        std::cout << "Number of outer iterations: " << simple_iter_v << " Number  of inner iterations: " << piso_iter_v << std::endl;
 
         // ===============================================================
         // OUTPUT
