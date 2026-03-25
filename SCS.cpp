@@ -419,31 +419,31 @@ int main() {
                 const double D_r = (4.0 / 3.0) * mu / dz;       // [kg/(m2s)]
 
                 aVU[i] =
-                    - std::max(phi_v[i], 0.0)
-                    - D_l;                                      // [kg/(m2s)]
+                    -std::max(phi_v[i], 0.0)
+                    - D_l;                                  // [kg/(m2s)]
                 cVU[i] =
-                    - std::max(-phi_v[i + 1], 0.0)
-                    - D_r;                                      // [kg/(m2s)]
+                    -std::max(-phi_v[i + 1], 0.0)
+                    - D_r;                                  // [kg/(m2s)]
                 bVU[i] =
-                    + std::max(phi_v[i + 1], 0.0)
+                    +std::max(phi_v[i + 1], 0.0)
                     + std::max(-phi_v[i], 0.0)
                     + rho_v[i] * dz / dt
-                    + D_l + D_r;                                // [kg/(m2s)]
+                    + D_l + D_r;                            // [kg/(m2s)]
                 dVU[i] =
-                    - 0.5 * (p_v[i + 1] - p_v[i - 1])
-                    + rho_v_old[i] * u_v_old[i] * dz / dt;      // [kg/(ms2)]
+                    -0.5 * (p_v[i + 1] - p_v[i - 1])
+                    + rho_v_old[i] * u_v_old[i] * dz / dt;  // [kg/(ms2)]
             }
 
-            // Diffusion coefficients for the first and last node to define BCs
+            /// Diffusion coefficients for the first and last node to define BCs
             const double D_first = (4.0 / 3.0) * mu / dz;
             const double D_last = (4.0 / 3.0) * mu / dz;
 
-            // Velocity BCs needed variables for the first node
+            /// Velocity BCs needed variables for the first node
             const double u_r_face_first = 0.5 * (u_v[1]);
             const double rho_r_first = (u_r_face_first >= 0) ? rho_v[0] : rho_v[1];
             const double F_r_first = rho_r_first * u_r_face_first;
 
-            // Velocity BCs needed variables for the last node
+            /// Velocity BCs needed variables for the last node
             const double u_l_face_last = 0.5 * (u_v[N - 2]);
             const double rho_l_last = (u_l_face_last >= 0) ? rho_v[N - 2] : rho_v[N - 1];
             const double F_l_last = rho_l_last * u_l_face_last;
@@ -478,103 +478,18 @@ int main() {
 
             #pragma endregion
 
-            // =========== TEMPERATURE CALCULATOR
-            #pragma region temperature_calculator
-            for (int i = 1; i < N - 1; i++) {
-
-                // Diffusion coefficients
-                const double D_l = k / (cp_v[i - 1] * dz);      // [W/(m2 K)]
-                const double D_r = k / (cp_v[i + 1] * dz);      // [W/(m2 K)]
-
-                // Pressure spatial gradient times velocity
-                const double dpdz_up = u_v[i] * (p_v[i + 1] - p_v[i - 1]) / 2.0;
-
-                // Pressure temporal derivative
-                const double dp_dt = (p_v[i] - p_v_old[i]) / dt * dz;
-
-                // Viscous friction
-                const double viscous_dissipation =
-                    4.0 / 3.0 * 0.25 * mu * ((u_v[i + 1] - u_v[i]) * (u_v[i + 1] - u_v[i])
-                        + (u_v[i] - u_v[i - 1]) * (u_v[i] - u_v[i - 1])) / dz;
-
-                aVT[i] =
-                    -D_l
-                    - std::max(phi_v[i], 0.0)
-                    ;                                           // [W/(m2K)]
-
-                cVT[i] =
-                    -D_r
-                    - std::max(-phi_v[i + 1], 0.0)
-                    ;                                           // [W/(m2K)]
-
-                bVT[i] =
-                    +std::max(phi_v[i + 1], 0.0)
-                    + std::max(-phi_v[i], 0.0)
-                    + D_l + D_r
-                    + rho_v[i] * dz / dt;                       // [W/(m2 K)]
-
-                dVT[i] =
-                    +rho_v_old[i] * dz / dt * h_v_old[i]
-                    + dp_dt
-                    + dpdz_up
-                    + viscous_dissipation
-                    + S_h[i] * dz;                              // [W/m2]
-            }
-
-            // BCs on temperature
-            if (T_inlet_bc == 0) {                      // Dirichlet BC
-
-                aVT[0] = 0.0;
-                bVT[0] = 1.0;
-                cVT[0] = 0.0;
-                dVT[0] = 2 * T_inlet_value * cp_v[0] - T_v[1] * cp_v[1];
-            }
-            else if (T_inlet_bc == 1) {                 // Neumann BC
-
-                aVT[0] = 0.0;
-                bVT[0] = 1.0;
-                cVT[0] = -1.0;
-                dVT[0] = 0.0;
-            }
-
-            if (T_outlet_bc == 0) {                     // Dirichlet BC
-
-                aVT[N - 1] = 0.0;
-                bVT[N - 1] = 1.0;
-                cVT[N - 1] = 0.0;
-                dVT[N - 1] = 2 * T_outlet_value * cp_v[N - 1] - T_v[N - 2] * cp_v[N - 2];
-            }
-            else if (T_outlet_bc == 1) {                // Neumann BC
-
-                aVT[N - 1] = -1.0;
-                bVT[N - 1] = 1.0;
-                cVT[N - 1] = 0.0;
-                dVT[N - 1] = 0.0;
-            }
-
-            tdma_solver.solve(aVT, bVT, cVT, dVT, h_v);
-
-            T_v_prev = T_v;
-
-            // Recovering temperture from enthalpy formulation
-            for (int i = 0; i < N; i++) T_v[i] = h_v[i] / cp_v[i];
-
-            #pragma endregion
-
             // Continuity residual initialization to access inner loop
             continuity_res_v = 1.0;
 
             // Inner iterations reset
             piso_iter_v = 0;
 
-            // Inner (continuity) loop
             while ((piso_iter_v < max_inner_iter) && (continuity_res_v > continuity_tol_v)) {
 
                 // =========== CONTINUITY SATISFACTOR
                 #pragma region continuity_satisfactor
                 for (int i = 1; i < N - 1; ++i) {
 
-                    // Compressibility coefficient
                     const double psi_i = 1.0 / (Rv * T_v[i]);   // [kg/J]
 
                     const double Crho_l = phi_v[i] >= 0 ? (1.0 / (Rv * T_v[i - 1])) : (1.0 / (Rv * T_v[i]));        // [s2/m2]
@@ -596,20 +511,20 @@ int main() {
                     aVP[i] =
                         -E_l
                         - std::max(C_l, 0.0)
-                        ;                       // [s/m]
+                        ;                       /// [s/m]
 
                     cVP[i] =
                         -E_r
                         - std::max(-C_r, 0.0)
-                        ;                       // [s/m]
+                        ;                       /// [s/m]
 
                     bVP[i] =
                         +E_l + E_r
                         + std::max(C_r, 0.0)
                         + std::max(-C_l, 0.0)
-                        + psi_i * dz / dt;      // [s/m]
+                        + psi_i * dz / dt;      /// [s/m]
 
-                    dVP[i] = +mass_flux - mass_imbalance;  // [kg/(m2s)]
+                    dVP[i] = +mass_flux - mass_imbalance;  /// [kg/(m2s)]
                 }
 
                 // BCs on p_prime
@@ -647,7 +562,7 @@ int main() {
                 #pragma region pressure_corrector
                 p_error_v = 0.0;
 
-                for (int i = 1; i < N - 1; ++i) {
+                for (int i = 0; i < N; ++i) {
 
                     p_prev[i] = p_v[i];
                     p_v[i] += p_prime_v[i];
@@ -659,23 +574,23 @@ int main() {
                 // BCs on pressure
                 if (p_inlet_bc == 0) {                              // Dirichlet BC
 
-					p_v[0] = 2 * p_inlet_value - p_v[1];
+                    p_v[0] = 2 * p_inlet_value - p_v[1];
                     p_storage_v[0] = p_inlet_value;
                 }
                 else if (p_inlet_bc == 1) {                         // Neumann BC
 
-					p_v[0] = p_v[1];
+                    p_v[0] = p_v[1];
                     p_storage_v[0] = p_storage_v[1];
                 }
 
                 if (p_outlet_bc == 0) {                              // Dirichlet BC
 
-					p_v[N - 1] = 2 * p_outlet_value - p_v[N - 2];
+                    p_v[N - 1] = 2 * p_outlet_value - p_v[N - 2];
                     p_storage_v[N + 1] = p_outlet_value;
                 }
                 else if (p_outlet_bc == 1) {                         // Neumann BC
 
-					p_v[N - 1] = p_v[N - 2];
+                    p_v[N - 1] = p_v[N - 2];
                     p_storage_v[N + 1] = p_storage_v[N];
                 }
 
@@ -693,6 +608,18 @@ int main() {
 
                 #pragma endregion
 
+                // =========== DENSITY CORRECTOR
+                #pragma region density_corrector
+                rho_error_v = 0.0;
+
+                for (int i = 0; i < N; ++i) {
+                    rho_prev[i] = rho_v[i];
+                    rho_v[i] += p_prime_v[i] / (Rv * T_v[i]);
+                    rho_error_v = std::max(rho_error_v, std::fabs(rho_v[i] - rho_prev[i]));
+                }
+
+                #pragma endregion
+
                 // =========== FLUX CORRECTOR
                 #pragma region flux_corrector
 
@@ -700,22 +627,16 @@ int main() {
 
                     const double avgInvbVU = 0.5 * (1.0 / bVU[i - 1] + 1.0 / bVU[i]); // [m2s/kg]
 
-                    // Correzione incrementale coerente con la matrice p'
-                    const double rho_face = (phi_v[i] >= 0.0) ? rho_v[i - 1] : rho_v[i];
-                    phi_v[i] -= rho_face * avgInvbVU * (p_prime_v[i] - p_prime_v[i - 1]) / dz;
+                    double rc = -avgInvbVU / 4.0 *
+                        (p_padded_v[i - 2] - 3.0 * p_padded_v[i - 1] + 3.0 * p_padded_v[i] - p_padded_v[i + 1]); // [m/s]
 
-                }
+                    // Face velocities (avg + RC)
+                    const double u_face = 0.5 * (u_v[i - 1] + u_v[i]) + rhie_chow_on_off_v * rc;    // [m/s]
 
-                #pragma endregion
+                    // Upwind densities at faces
+                    const double rho = (u_face >= 0.0) ? rho_v[i - 1] : rho_v[i];       // [kg/m3]
 
-                // =========== DENSITY CORRECTOR
-                #pragma region density_corrector
-                rho_error_v = 0.0;
-
-                for (int i = 1; i < N - 1; ++i) {
-                    rho_prev[i] = rho_v[i];
-                    rho_v[i] += p_prime_v[i] / (Rv * T_v[i]);
-                    rho_error_v = std::max(rho_error_v, std::fabs(rho_v[i] - rho_prev[i]));
+                    phi_v[i] = rho * u_face;
                 }
 
                 #pragma endregion
@@ -728,8 +649,8 @@ int main() {
                 for (int i = 1; i < N - 1; ++i) {
 
                     const double mass_imbalance = (phi_v[i + 1] - phi_v[i]) + (rho_v[i] - rho_v_old[i]) * dz / dt;  // [kg/(m2s)]
-                    const double mass_flux = S_m[i] * dz;                                                           // [kg/(m2s)]
-                    dVP[i] = +mass_flux - mass_imbalance;                                                           // [kg/(m2s)]
+                    const double mass_flux = S_m[i] * dz;       // [kg/(m2s)]
+                    dVP[i] = +mass_flux - mass_imbalance;  /// [kg/(m2s)]
 
                     continuity_res_v = std::max(continuity_res_v, std::abs(dVP[i]));
                 }
@@ -750,15 +671,94 @@ int main() {
 
             #pragma endregion
 
-            // Make density coherent with the temperature and pressure fields
-            for (int i = 0; i < N; i++) rho_v[i] = std::max(1e-6, p_v[i] / (Rv * T_v[i]));
+            // =========== TEMPERATURE CALCULATOR
+            #pragma region temperature_calculator
+            for (int i = 1; i < N - 1; i++) {
+
+                const double D_l = k / (cp_v[i - 1] * dz);      /// [W/(m2 K)]
+                const double D_r = k / (cp_v[i + 1] * dz);      /// [W/(m2 K)]
+
+                const double dpdz_up = u_v[i] * (p_v[i + 1] - p_v[i - 1]) / 2.0;
+
+                const double dp_dt = (p_v[i] - p_v_old[i]) / dt * dz;
+
+                const double viscous_dissipation =
+                    4.0 / 3.0 * 0.25 * mu * ((u_v[i + 1] - u_v[i]) * (u_v[i + 1] - u_v[i])
+                        + (u_v[i] + u_v[i - 1]) * (u_v[i] + u_v[i - 1])) / dz;
+
+                aVT[i] =
+                    -D_l
+                    - std::max(phi_v[i], 0.0)
+                    ;               /// [W/(m2K)]
+
+                cVT[i] =
+                    -D_l
+                    - std::max(-phi_v[i + 1], 0.0)
+                    ;              /// [W/(m2K)]
+
+                bVT[i] =
+                    +std::max(phi_v[i + 1], 0.0)
+                    + std::max(-phi_v[i], 0.0)
+                    + D_l + D_r
+                    + rho_v[i] * dz / dt;          /// [W/(m2 K)]
+
+                dVT[i] =
+                    +rho_v_old[i] * dz / dt * h_v_old[i]
+                    + dp_dt
+                    + dpdz_up
+                    + viscous_dissipation
+                    + S_h[i] * dz;                      /// [W/m2]
+            }
+
+            // BCs on temperature
+            if (T_inlet_bc == 0) {                      // Dirichlet BC
+
+                aVT[0] = 0.0;
+                bVT[0] = 1.0;
+                cVT[0] = 0.0;
+                dVT[0] = 2 * T_inlet_value * cp_v[0] - T_v[1] * cp_v[1];
+            }
+            else if (T_inlet_bc == 1) {                 // Neumann BC
+
+                aVT[0] = 0.0;
+                bVT[0] = 1.0;
+                cVT[0] = -1.0;
+                dVT[0] = 0.0;
+            }
+
+            if (T_outlet_bc == 0) {                     // Dirichlet BC
+
+                aVT[N - 1] = 0.0;
+                bVT[N - 1] = 1.0;
+                cVT[N - 1] = 0.0;
+                dVT[N - 1] = 2 * T_outlet_value * cp_v[N - 1] - T_v[N - 2] * cp_v[N - 2];
+            }
+            else if (T_outlet_bc == 1) {                // Neumann BC
+
+                aVT[N - 1] = -1.0;
+                bVT[N - 1] = 1.0;
+                cVT[N - 1] = 0.0;
+                dVT[N - 1] = 0.0;
+            }
+
+            T_v_prev = T_v;
+            tdma_solver.solve(aVT, bVT, cVT, dVT, h_v);
+
+            // Recovering temperture from enthalpy
+            for (int i = 0; i < N; i++) {
+
+                T_v[i] = h_v[i] / cp_v[i];
+
+            }
+
+            #pragma endregion
 
             // =========== TEMPERATURE RESIDUAL CALCULATOR
             #pragma region temperature_residual_calculator
 
             temperature_res_v = 0.0;
 
-            for (int i = 1; i < N - 1; ++i) {
+            for (int i = 0; i < N; ++i) {
 
                 temperature_res_v = std::max(
                     temperature_res_v,
@@ -767,6 +767,8 @@ int main() {
             }
 
             #pragma endregion
+
+            for (int i = 0; i < N; i++) { rho_v[i] = std::max(1e-6, p_v[i] / (Rv * T_v[i])); }
 
             simple_iter_v++;
         }
