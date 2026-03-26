@@ -278,7 +278,7 @@ int main() {
 
     std::vector<double> phi_v(N + 1, 0.0);                              // Vapor face mass flux [kg/m2s]
 
-    for (int i = 0; i < N; ++i) p_storage_v[i + 1] = p_v[i];            // Pressure storage initialization
+    for (int i = 0; i < N + 2; ++i) p_storage_v[i] = in.p_initial;      // Pressure storage initialization
 
 	std::vector<double> u_prev(N, 0.0);                                 // Previous iteration velocity for convergence check [m/s]
 	std::vector<double> p_prev(N, 0.0);                                 // Previous iteration pressure for convergence check [Pa]
@@ -345,6 +345,8 @@ int main() {
     // Density field initialization coherent with pressure and temperature ICs
     for (int i = 0; i < N; i++) rho_v[i] = std::max(1e-6, p_v[i] / (Rv * T_v[i]));
 
+    rho_v_old = rho_v;
+
     // Initialization of the momentum equation coefficient
     for (int i = 0; i < N; ++i) bVU[i] = rho_v[i] * dz / dt_user + 2 * mu / dz;
 
@@ -385,6 +387,9 @@ int main() {
         const double rho_face = (u_face >= 0.0) ? rho_v[i - 1] : rho_v[i];
         phi_v[i] = rho_face * u_face;
     }
+
+    phi_v[0] = phi_v[1];
+    phi_v[N] = phi_v[N - 1];
 
     auto wall_start = std::chrono::steady_clock::now();     // Wall time
     std::clock_t cpu_start = std::clock();                  // CPU time
@@ -451,8 +456,8 @@ int main() {
             if (u_inlet_bc == 0) {                              // Dirichlet BC
                 aVU[0] = 0.0;
                 bVU[0] = rho_v[0] * dz / dt + 2 * D_first + F_r_first;
-                cVU[0] = 0.0;
-                dVU[0] = bVU[0] * (2 * u_inlet_value - u_v[1]);
+                cVU[0] = bVU[0];
+                dVU[0] = 2 * bVU[0] * u_inlet_value;
             }
             else if (u_inlet_bc == 1) {                         // Neumann BC
                 aVU[0] = 0.0;
@@ -464,8 +469,8 @@ int main() {
             if (u_outlet_bc == 0) {                             // Dirichlet BC
                 aVU[N - 1] = 0.0;
                 bVU[N - 1] = +(rho_v[N - 1] * dz / dt + 2 * D_last - F_l_last);
-                cVU[N - 1] = 0.0;
-                dVU[N - 1] = bVU[N - 1] * (2 * u_outlet_value - u_v[N - 2]);
+                cVU[N - 1] = bVU[N - 1];
+                dVU[N - 1] = 2 * bVU[N - 1] * u_outlet_value;
             }
             else if (u_outlet_bc == 1) {                        // Neumann BC
                 aVU[N - 1] = -(rho_v[N - 1] * dz / dt + 2 * D_last - F_l_last);
@@ -475,6 +480,31 @@ int main() {
             }
 
             tdma_solver.solve(aVU, bVU, cVU, dVU, u_v);
+
+            // =========== FLUX PREDICTOR 
+            #pragma region flux_predictor
+
+            for (int i = 1; i < N; ++i) {
+
+                const double avgInvbVU = 0.5 * (1.0 / bVU[i - 1] + 1.0 / bVU[i]); // [m2s/kg]
+
+                double rc = -avgInvbVU / 4.0 *
+                    (p_padded_v[i - 2] - 3.0 * p_padded_v[i - 1] + 3.0 * p_padded_v[i] - p_padded_v[i + 1]); // [m/s]
+
+                // Face velocities (avg + RC)
+                const double u_face = 0.5 * (u_v[i - 1] + u_v[i]) + rhie_chow_on_off_v * rc;    // [m/s]
+
+                // Upwind densities at faces
+                const double rho = (u_face >= 0.0) ? rho_v[i - 1] : rho_v[i];       // [kg/m3]
+
+                phi_v[i] = rho * u_face;
+            }
+
+            // Boundary conditions for ghost cells
+            phi_v[0] = phi_v[1];
+            phi_v[N] = phi_v[N - 1];
+
+            #pragma endregion
 
             // Continuity residual initialization to access inner loop
             continuity_res_v = 1.0;
@@ -594,48 +624,44 @@ int main() {
 
                 #pragma endregion
 
-                // =========== VELOCITY CORRECTOR
-                #pragma region velocity_corrector
-                u_error_v = 0.0;
-
-                for (int i = 1; i < N - 1; ++i) {
-                    u_prev[i] = u_v[i];
-                    u_v[i] -= (p_prime_v[i + 1] - p_prime_v[i - 1]) / (2.0 * bVU[i]);
-                    u_error_v = std::max(u_error_v, std::fabs(u_v[i] - u_prev[i]));
-                }
-
-                #pragma endregion
-
                 // =========== DENSITY CORRECTOR
                 #pragma region density_corrector
                 rho_error_v = 0.0;
 
-                for (int i = 0; i < N; ++i) {
+                for (int i = 1; i < N - 1; ++i) {
                     rho_prev[i] = rho_v[i];
                     rho_v[i] += p_prime_v[i] / (Rv * T_v[i]);
                     rho_error_v = std::max(rho_error_v, std::fabs(rho_v[i] - rho_prev[i]));
                 }
 
+                // Boundary conditions for ghost cells
+                rho_v[0] = rho_v[1];
+                rho_v[N - 1] = rho_v[N - 2];
+
                 #pragma endregion
 
                 // =========== FLUX CORRECTOR
                 #pragma region flux_corrector
-
+                
                 for (int i = 1; i < N; ++i) {
-
-                    const double avgInvbVU = 0.5 * (1.0 / bVU[i - 1] + 1.0 / bVU[i]); // [m2s/kg]
-
-                    double rc = -avgInvbVU / 4.0 *
-                        (p_padded_v[i - 2] - 3.0 * p_padded_v[i - 1] + 3.0 * p_padded_v[i] - p_padded_v[i + 1]); // [m/s]
-
-                    // Face velocities (avg + RC)
-                    const double u_face = 0.5 * (u_v[i - 1] + u_v[i]) + rhie_chow_on_off_v * rc;    // [m/s]
-
-                    // Upwind densities at faces
-                    const double rho = (u_face >= 0.0) ? rho_v[i - 1] : rho_v[i];       // [kg/m3]
-
-                    phi_v[i] = rho * u_face;
+                    double E_face = 0.5 * (rho_v[i - 1] / bVU[i - 1] + rho_v[i] / bVU[i]) / dz;
+                    phi_v[i] -= E_face * (p_prime_v[i] - p_prime_v[i - 1]);
                 }
+
+                // Boundary conditions for ghost cells
+                phi_v[0] = phi_v[1];
+                phi_v[N] = phi_v[N - 1];
+
+                #pragma endregion
+
+                // =========== VELOCITY RECONSTRUCTION
+                #pragma region velocity_reconstruction
+
+                for (int i = 1; i < N - 1; ++i) u_v[i] = 0.5 * (phi_v[i] + phi_v[i + 1]) / rho_v[i];
+
+                // Boundary conditions for ghost cells
+                u_v[0] = 2 * u_inlet_value - u_v[1];
+                u_v[N - 1] = u_v[N - 2];
 
                 #pragma endregion
 
@@ -648,7 +674,7 @@ int main() {
 
                     const double mass_imbalance = (phi_v[i + 1] - phi_v[i]) + (rho_v[i] - rho_v_old[i]) * dz / dt;  // [kg/(m2s)]
                     const double mass_flux = S_m[i] * dz;       // [kg/(m2s)]
-                    dVP[i] = +mass_flux - mass_imbalance;  // [kg/(m2s)]
+                    dVP[i] = +mass_flux - mass_imbalance;       // [kg/(m2s)]
 
                     continuity_res_v = std::max(continuity_res_v, std::abs(dVP[i]));
                 }
@@ -663,9 +689,8 @@ int main() {
 
             momentum_res_v = 0.0;
 
-            for (int i = 1; i < N - 1; ++i) {
+            for (int i = 1; i < N - 1; ++i) 
                 momentum_res_v = std::max(momentum_res_v, std::abs(aVU[i] * u_v[i - 1] + bVU[i] * u_v[i] + cVU[i] * u_v[i + 1] - dVU[i]));
-            }
 
             #pragma endregion
 
@@ -762,7 +787,11 @@ int main() {
 
             #pragma endregion
 
-            for (int i = 0; i < N; i++) { rho_v[i] = std::max(1e-6, p_v[i] / (Rv * T_v[i])); }
+            for (int i = 1; i < N - 1; i++) rho_v[i] = std::max(1e-6, p_v[i] / (Rv * T_v[i]));
+
+            // Boundary conditions for ghost cells
+            rho_v[0] = rho_v[1];
+            rho_v[N - 1] = rho_v[N - 2];
 
             simple_iter_v++;
         }
@@ -778,6 +807,9 @@ int main() {
         // ===============================================================
 
         if (n % print_every == 0) {
+
+            std::cout << "Outer iterations: " << simple_iter_v << " Inner iterations: " << piso_iter_v << std::endl;
+
             for (int i = 1; i < N - 1; ++i) {       // No output for ghosts cells
 
                 v_out << u_v[i] << ", ";

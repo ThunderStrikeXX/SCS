@@ -11,8 +11,8 @@ picard_max_iter = 100
 picard_tol = 1e-8
 
 # ---------------- PIMPLE ----------------
-max_outer_iter = 100
-max_inner_iter = 50
+max_outer_iter = 10
+max_inner_iter = 3
 momentum_tol = 1e-6
 continuity_tol = 1e-6
 temperature_tol = 1e-6
