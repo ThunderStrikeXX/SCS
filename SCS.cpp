@@ -479,6 +479,8 @@ int main() {
                 dVU[N - 1] = 0.0;
             }
 
+            std::vector<double> u_prev = u_v;
+
             tdma_solver.solve(aVU, bVU, cVU, dVU, u_v);
 
             // =========== FLUX PREDICTOR 
@@ -686,11 +688,11 @@ int main() {
 
             // =========== MOMENTUM RESIDUAL CALCULATOR
             #pragma region momentum_residual_calculator
-
             momentum_res_v = 0.0;
 
-            for (int i = 1; i < N - 1; ++i) 
-                momentum_res_v = std::max(momentum_res_v, std::abs(aVU[i] * u_v[i - 1] + bVU[i] * u_v[i] + cVU[i] * u_v[i + 1] - dVU[i]));
+            for (int i = 1; i < N - 1; ++i) {
+                momentum_res_v = std::max(momentum_res_v, std::abs(u_prev[i] - u_v[i]) / std::abs(u_prev[i]));
+            }
 
             #pragma endregion
 
