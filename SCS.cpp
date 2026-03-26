@@ -661,9 +661,19 @@ int main() {
 
                 for (int i = 1; i < N - 1; ++i) u_v[i] = 0.5 * (phi_v[i] + phi_v[i + 1]) / rho_v[i];
 
-                // Boundary conditions for ghost cells
-                u_v[0] = 2 * u_inlet_value - u_v[1];
-                u_v[N - 1] = u_v[N - 2];
+                if (u_inlet_bc == 0) {                              // Dirichlet BC
+                    u_v[0] = 2 * u_inlet_value - u_v[1];
+                }
+                else if (u_inlet_bc == 1) {                         // Neumann BC
+                    u_v[0] = u_v[1];
+                }
+
+                if (u_outlet_bc == 0) {                             // Dirichlet BC
+                    u_v[N - 1] = 2 * u_outlet_value - u_v[N - 2];
+                }
+                else if (u_outlet_bc == 1) {                        // Neumann BC
+                    u_v[N - 1] = u_v[N - 2];
+                }
 
                 #pragma endregion
 
@@ -691,7 +701,7 @@ int main() {
             momentum_res_v = 0.0;
 
             for (int i = 1; i < N - 1; ++i) {
-                momentum_res_v = std::max(momentum_res_v, std::abs(u_prev[i] - u_v[i]) / std::abs(u_prev[i]));
+                momentum_res_v = std::max(momentum_res_v, std::abs(u_prev[i] - u_v[i]));
             }
 
             #pragma endregion
@@ -717,7 +727,7 @@ int main() {
                     ;                               // [W/(m2K)]
 
                 cVT[i] =
-                    -D_l
+                    -D_r
                     - std::max(-phi_v[i + 1], 0.0)
                     ;                               // [W/(m2K)]
 
