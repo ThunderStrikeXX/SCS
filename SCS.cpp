@@ -103,7 +103,7 @@ struct Input {
     double p_initial = 10000.0;             // [Pa]
     double T_initial = 300.0;               // [K]
 
-    int number_output = 10;                 // Number of outputs [-]
+    int print_interval = 10;                 // Number of outputs [-]
 
     std::string velocity_file = "velocity.txt";
     std::string pressure_file = "pressure.txt";
@@ -202,7 +202,7 @@ Input readInput(const std::string& filename) {
 	in.T_initial = std::stod(dict["T_initial"]);
     in.p_initial = std::stod(dict["p_initial"]);
 
-    in.number_output = std::stoi(dict["number_output"]);
+    in.print_interval = std::stoi(dict["print_interval"]);
     in.velocity_file = dict["velocity_file"];
     in.pressure_file = dict["pressure_file"];
     in.temperature_file = dict["temperature_file"];
@@ -232,10 +232,10 @@ int main() {
 	const double simulation_time = in.simulation_time;                  // Total simulation time [s]
 	const int time_steps = static_cast<int>(simulation_time / dt_user); // Number of time steps [-]
         
-	const int number_output = in.number_output;                         // Number of outputs [-]
-	const int print_every = time_steps / number_output;                 // Print output every n time steps [-]
+	const int print_interval = in.print_interval;                       // Printing interval [-]
 
 	double time_total = 0.0;                                            // Total simulation time [s]
+    double t_last_print = 0.0;                                          // Instant in time of last data print [s]
 
 	const int max_outer_iter = in.max_outer_iter;                       // Total outer iterations [-]
 	const int max_inner_iter = in.max_inner_iter;                       // Total inner iterations [-]
@@ -388,7 +388,7 @@ int main() {
     std::clock_t cpu_start = std::clock();                  // CPU time
 
 	// Time-stepping loop
-    for (int n = 0; n <= time_steps; ++n) {
+    while (time_total < simulation_time) {
 
         // Update properties (for now constant values)
         for (int i = 0; i < N; ++i) {
@@ -432,47 +432,37 @@ int main() {
                     + rho_v_old[i] * u_v_old[i] * dz / dt;      // [kg/(ms2)]
             }
 
-            // Diffusion coefficients for the first and last node to define BCs
+            // Diffusion coefficients for the ghost cells (first and last) to define BCs
             const double D_first = (4.0 / 3.0) * mu / dz;
             const double D_last = (4.0 / 3.0) * mu / dz;
 
-            // Velocity BCs needed variables for the first node
-            const double u_r_face_first = 0.5 * (u_v[1]);
-            const double rho_r_first = (u_r_face_first >= 0) ? rho_v[0] : rho_v[1];
-            const double F_r_first = rho_r_first * u_r_face_first;
-
-            // Velocity BCs needed variables for the last node
-            const double u_l_face_last = 0.5 * (u_v[N - 2]);
-            const double rho_l_last = (u_l_face_last >= 0) ? rho_v[N - 2] : rho_v[N - 1];
-            const double F_l_last = rho_l_last * u_l_face_last;
-
             if (u_inlet_bc == 0) {                              // Dirichlet BC
                 aVU[0] = 0.0;
-                bVU[0] = rho_v[0] * dz / dt + 2 * D_first + F_r_first;
+                bVU[0] = rho_v[0] * dz / dt + 2 * D_first + phi_v[1];
                 cVU[0] = bVU[0];
                 dVU[0] = 2 * bVU[0] * u_inlet_value;
             }
             else if (u_inlet_bc == 1) {                         // Neumann BC
                 aVU[0] = 0.0;
-                bVU[0] = +(rho_v[0] * dz / dt + 2 * D_first + F_r_first);
-                cVU[0] = -(rho_v[0] * dz / dt + 2 * D_first + F_r_first);
+                bVU[0] = +(rho_v[0] * dz / dt + 2 * D_first + phi_v[1]);
+                cVU[0] = -(rho_v[0] * dz / dt + 2 * D_first + phi_v[1]);
                 dVU[0] = 0.0;
             }
 
             if (u_outlet_bc == 0) {                             // Dirichlet BC
                 aVU[N - 1] = 0.0;
-                bVU[N - 1] = +(rho_v[N - 1] * dz / dt + 2 * D_last - F_l_last);
+                bVU[N - 1] = +(rho_v[N - 1] * dz / dt + 2 * D_last - phi_v[N - 1]);
                 cVU[N - 1] = bVU[N - 1];
                 dVU[N - 1] = 2 * bVU[N - 1] * u_outlet_value;
             }
             else if (u_outlet_bc == 1) {                        // Neumann BC
-                aVU[N - 1] = -(rho_v[N - 1] * dz / dt + 2 * D_last - F_l_last);
-                bVU[N - 1] = +(rho_v[N - 1] * dz / dt + 2 * D_last - F_l_last);
+                aVU[N - 1] = -(rho_v[N - 1] * dz / dt + 2 * D_last - phi_v[N - 1]);
+                bVU[N - 1] = +(rho_v[N - 1] * dz / dt + 2 * D_last - phi_v[N - 1]);
                 cVU[N - 1] = 0.0;
                 dVU[N - 1] = 0.0;
             }
 
-            std::vector<double> u_prev = u_v;
+            u_prev = u_v; 
 
             tdma_solver.solve(aVU, bVU, cVU, dVU, u_v);
 
@@ -495,7 +485,7 @@ int main() {
                 phi_v[i] = rho * u_face;
             }
 
-            // Boundary conditions for ghost cells
+            // Boundary conditions for ghost cells' faces
             phi_v[0] = phi_v[1];
             phi_v[N] = phi_v[N - 1];
 
@@ -807,13 +797,17 @@ int main() {
         rho_v_old = rho_v;
         h_v_old = h_v;
 
+        time_total += dt_user;
+
         // ===============================================================
         // OUTPUT
         // ===============================================================
 
-        if (n % print_every == 0) {
+        if (time_total >= t_last_print + print_interval) {
 
+            std::cout << "Time: " << time_total << " / " << simulation_time << std::endl;
             std::cout << "Outer iterations: " << simple_iter_v << " Inner iterations: " << piso_iter_v << std::endl;
+            std::cout << "Continuity res. : " << continuity_res_v << " Momentum res. : " << momentum_res_v << " Temperature res. : " << temperature_res_v << std::endl;
 
             for (int i = 1; i < N - 1; ++i) {       // No output for ghosts cells
 
@@ -832,6 +826,8 @@ int main() {
             p_out.flush();
             T_out.flush();
             rho_out.flush();
+
+            t_last_print += print_interval;
         }
     }
 
