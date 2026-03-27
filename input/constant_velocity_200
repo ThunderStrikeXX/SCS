@@ -6,13 +6,9 @@ L = 1.0
 dt_user = 1e-3
 simulation_time = 1.0
 
-# ---------------- PICARD --------------
-picard_max_iter = 100
-picard_tol = 1e-8
-
 # ---------------- PIMPLE ----------------
 max_outer_iter = 100
-max_inner_iter = 50
+max_inner_iter = 3
 momentum_tol = 1e-6
 continuity_tol = 1e-6
 temperature_tol = 1e-6
@@ -37,7 +33,6 @@ z_cond_end   = 1.0
 u_initial = 1.0
 T_initial = 300.0
 p_initial = 10000.0
-rho_initial = 0.0922
 
 # -------- VELOCITY BCs ----------
 u_inlet_bc    = 0
@@ -61,7 +56,7 @@ p_outlet_bc    = 0
 p_outlet_value = 10000.0
 
 # ---------------- OUTPUT --------------
-number_output = 100
+print_interval = 0.1
 velocity_file = velocity.dat
 pressure_file = pressure.dat
 temperature_file = temperature.dat
