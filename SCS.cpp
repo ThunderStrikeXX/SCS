@@ -61,9 +61,6 @@ struct Input {
     double dt_user = 1e-3;                  // User-defined time step [s]
     double simulation_time = 1.0;           // Total simulation time [s]
 
-    int    picard_max_iter = 50;            // Maximum Picard iterations [-]
-    double picard_tol = 1e-2;               // Picard tolerance [-]
-
     int    max_outer_iter = 10;             // Maximum outer iterations [-]
     int    max_inner_iter = 10;             // Maximum inner iterations [-]
     double momentum_tol = 1e-6;             // Momentum tolerance [-]
@@ -105,7 +102,6 @@ struct Input {
     double u_initial = 0.0;                 // [m/s]
     double p_initial = 10000.0;             // [Pa]
     double T_initial = 300.0;               // [K]
-	double rho_initial = 0.0922;            // [kg/m3]
 
     int number_output = 10;                 // Number of outputs [-]
 
@@ -205,7 +201,6 @@ Input readInput(const std::string& filename) {
 	in.u_initial = std::stod(dict["u_initial"]);
 	in.T_initial = std::stod(dict["T_initial"]);
     in.p_initial = std::stod(dict["p_initial"]);
-	in.rho_initial = std::stod(dict["rho_initial"]);
 
     in.number_output = std::stoi(dict["number_output"]);
     in.velocity_file = dict["velocity_file"];
@@ -242,9 +237,6 @@ int main() {
 
 	double time_total = 0.0;                                            // Total simulation time [s]
 
-	const int max_picard = in.picard_max_iter;                          // Maximum Picard iterations [-]
-	const double pic_tolerance = in.picard_tol;                         // Picard tolerance [-]
-
 	const int max_outer_iter = in.max_outer_iter;                       // Total outer iterations [-]
 	const int max_inner_iter = in.max_inner_iter;                       // Total inner iterations [-]
 	const double momentum_tol_v = in.momentum_tol;                      // Momentum tolerance [-]
@@ -266,11 +258,11 @@ int main() {
 	std::vector<double> u_v(N, in.u_initial);                           // Velocity field [m/s]
 	std::vector<double> T_v(N, in.T_initial);                           // Temperature field [K]
 	std::vector<double> p_v(N, in.p_initial);                           // Pressure field [Pa]
-	std::vector<double> rho_v(N, in.rho_initial);                       // Density field [kg/m3]
+    std::vector<double> rho_v(N);                                       // Density field [Pa]
 
 	std::vector<double> u_v_old = u_v;                                  // Previous time step velocity [m/s]
 	std::vector<double> p_v_old = p_v;                                  // Previous time step pressure [Pa]
-	std::vector<double> rho_v_old = rho_v;                              // Previous time step density [kg/m3]
+    std::vector<double> rho_v_old(N);                                      // Previous time step density [kg/m3]
 
 	std::vector<double> p_prime_v(N, 0.0);                              // Pressure correction [Pa]
 	std::vector<double> p_storage_v(N + 2, 0.0);                        // Padded pressure storage for Rhie–Chow [Pa]
@@ -342,13 +334,24 @@ int main() {
 	std::vector<double> cVT(N, 0.0);                        // Upper tridiagonal coefficient for temperature
 	std::vector<double> dVT(N, 0.0);                        // Known vector coefficient for temperature
 
-    // Density field initialization coherent with pressure and temperature ICs
-    for (int i = 0; i < N; i++) rho_v[i] = std::max(1e-6, p_v[i] / (Rv * T_v[i]));
+    // Density field and diagonal momentum coefficient initialization
+    for (int i = 0; i < N; i++) {
+        
+        rho_v[i] = std::max(1e-6, p_v[i] / (Rv * T_v[i]));
+        rho_v_old[i] = rho_v[i];
 
-    rho_v_old = rho_v;
+        bVU[i] = rho_v[i] * dz / dt_user + 2 * mu / dz;
+    }
 
-    // Initialization of the momentum equation coefficient
-    for (int i = 0; i < N; ++i) bVU[i] = rho_v[i] * dz / dt_user + 2 * mu / dz;
+    // Face fluxes initialization
+    for (int i = 1; i < N; ++i) {
+        const double u_face = 0.5 * (u_v[i - 1] + u_v[i]);
+        const double rho_face = (u_face >= 0.0) ? rho_v[i - 1] : rho_v[i];
+        phi_v[i] = rho_face * u_face;
+    }
+
+    phi_v[0] = phi_v[1];
+    phi_v[N] = phi_v[N - 1];
 
     // Paths and cases name
     fs::path inputPath(inputFile);
@@ -380,16 +383,6 @@ int main() {
     double p_error_v = 0.0;
     double u_error_v = 0.0;
     double rho_error_v = 0.0;
-
-    // Face fluxes initialization with upwind interpolation for density
-    for (int i = 1; i < N; ++i) {
-        const double u_face = 0.5 * (u_v[i - 1] + u_v[i]);
-        const double rho_face = (u_face >= 0.0) ? rho_v[i - 1] : rho_v[i];
-        phi_v[i] = rho_face * u_face;
-    }
-
-    phi_v[0] = phi_v[1];
-    phi_v[N] = phi_v[N - 1];
 
     auto wall_start = std::chrono::steady_clock::now();     // Wall time
     std::clock_t cpu_start = std::clock();                  // CPU time
